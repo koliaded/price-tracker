@@ -31,4 +31,7 @@ jobs:
           playwright install-deps chromium
 
       - name: Run Price Tracker
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python tracker.py
