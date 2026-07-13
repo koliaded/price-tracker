@@ -5,7 +5,6 @@ import requests
 from playwright.async_api import async_playwright
 
 # 🛒 ВАШ СПИСОК КОМПЛЕКТУЮЧИХ ДЛЯ СЕРВЕРА
-# Ви можете додавати сюди скільки завгодно посилань для кожної категорії!
 TRACKING_LIST = [
     # --- ПРОЦЕСОРИ (CPU) ---
     {"category": "💻 CPU", "name": "Ryzen 9 9950X (Exe)", "url": "https://exe.ua/product-p663805/"},
@@ -13,7 +12,7 @@ TRACKING_LIST = [
     {"category": "💻 CPU", "name": "Ryzen 9 9950X (Hotline)", "url": "https://hotline.ua/ua/computer-processory/amd-ryzen-5-5600x-100-100000065box/"},
 
     # --- МАТЕРИНСЬКІ ПЛАТИ ---
-    {"category": "🔌 Материнка", "name": "Плата (Приклад Exe)", "url": "https://exe.ua/"}, # Замініть на реальні лінки
+    {"category": "🔌 Материнка", "name": "Плата (Приклад Exe)", "url": "https://exe.ua/"},
 
     # --- ОПЕРАТИВНА ПАМ'ЯТЬ (RAM) ---
     {"category": "🧠 Оперативка", "name": "RAM (Приклад Rozetka)", "url": "https://rozetka.com.ua.ua/"},
@@ -35,13 +34,14 @@ async def check_product(page, item):
     url = item['url']
     url_lower = url.lower()
     
-    # Пропускаємо заглушки, якщо ви ще не вставили туди реальні посилання
+    # Пропускаємо заглушки
     if url in ["https://exe.ua/", "https://rozetka.com.ua.ua/", "https://hotline.ua/ua/"]:
         return None
         
     try:
-        await page.goto(url, timeout=45000, wait_until="domcontentloaded")
-        await page.wait_for_timeout(3000)
+        # Чекаємо довше (до 60 сек) і даємо 6 секунд на повне відмальовування цін
+        await page.goto(url, timeout=60000, wait_until="load")
+        await page.wait_for_timeout(6000)
         
         body_text = await page.inner_text('body')
         body_text_lower = body_text.lower()
@@ -50,38 +50,34 @@ async def check_product(page, item):
         
         # Rozetka
         if "rozetka.com.ua" in url_lower:
-            for sel in ['.product-price__big', '.product-prices__big', '.product-trade-price']:
+            for sel in ['p.product-prices__big', '.product-price__big', 'div.product-price']:
                 if await page.locator(sel).count() > 0:
                     price = (await page.locator(sel).first.inner_text()).strip().replace('\n', ' ')
                     break
-            status = "🔴 Немає" if "немає в наявності" in body_text_lower else "🟢 Є"
+            status = "🔴 Немає" if "немає в наявності" in body_text_lower or "закінчився" in body_text_lower else "🟢 Є"
 
         # Hotline
         elif "hotline.ua" in url_lower:
-            for sel in ['.price-line__price', 'span.price-format', '.content-title__price']:
+            for sel in ['.price__value', '.price-md', '.price-lg', '.price-line__price', 'span.price-format']:
                 if await page.locator(sel).count() > 0:
                     price = (await page.locator(sel).first.inner_text()).strip().replace('\n', ' ')
                     break
-            status = "🔴 Немає" if "немає в магазинах" in body_text_lower else "🟢 Є пропозиції"
+            status = "🔴 Немає" if "немає в магазинах" in body_text_lower or "знято з виробництва" in body_text_lower else "🟢 Є пропозиції"
 
         # Exe.ua
         else:
-            price_elements = await page.locator('.price, .product-price, .new-price, .current-price').all_inner_texts()
-            if price_elements:
-                price = price_elements[0].strip().replace('\n', ' ')
-            status = "🟢 Є" if "в наявності" in body_text_lower else "🔴 Немає"
-
-        if price == "Not found" or price == "Не знайдено":
-            match = re.search(r'(\d[\d\s ]*)\s*грн', body_text)
-            if match:
-                price = f"{match.group(1).strip()} грн"
+            for sel in ['.price-new', '.product-price .price', '.price', '.current-price']:
+                if await page.locator(sel).count() > 0:
+                    price = (await page.locator(sel).first.inner_text()).strip().replace('\n', ' ')
+                    break
+            status = "🟢 Є" if "в наявності" in body_text_lower or "купити" in body_text_lower else "🔴 Немає"
 
         return {
             "category": item['category'], "name": item['name'], 
             "price": price, "status": status, "url": url
         }
     except Exception as e:
-        return {"category": item['category'], "name": item['name'], "price": f"Помилка: {str(e)}", "status": "❌", "url": url}
+        return {"category": item['category'], "name": item['name'], "price": "Помилка завантаження", "status": "❌", "url": url}
 
 def send_telegram_message(text):
     token = os.environ.get("TELEGRAM_TOKEN")
@@ -105,9 +101,19 @@ async def main():
     print("=== ЗАПУСК МОНІТОРИНГУ ДЛЯ СЕРВЕРА ===")
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
+        
+        # Додаємо маскування під звичайного користувача з України
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080},
+            locale="uk-UA",
+            timezone_id="Europe/Kiev"
         )
+        await context.set_extra_http_headers({
+            "Accept-Language": "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+        })
+        
         page = await context.new_page()
         
         results = []
@@ -115,7 +121,7 @@ async def main():
             res = await check_product(page, item)
             if res:
                 results.append(res)
-            await asyncio.sleep(4)
+            await asyncio.sleep(5) # Робимо паузу 5 секунд між сайтами, щоб не забанили
             
         await browser.close()
     
@@ -139,7 +145,7 @@ async def main():
     msg += "🤖 Бот працює в штатному режимі."
     
     print(msg) # Вивід в консоль GitHub
-    send_telegram_message(msg) # Надсилаємо на телефон
+    send_telegram_message(msg)
 
 if __name__ == "__main__":
     asyncio.run(main())
