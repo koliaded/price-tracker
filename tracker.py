@@ -5,16 +5,16 @@ from playwright.async_api import async_playwright
 # 🛒 СЮДИ ВСТАВЛЯЙТЕ СВОЇ РЕАЛЬНІ ПОСИЛАННЯ НА ТОВАРИ З РОЗЕТКИ, ХОТЛАЙНУ ТА ЕКСЕ
 TRACKING_LIST = [
     {
-        "name": "Процесор AMD (Приклад Exe.ua)", 
+        "name": "Процесор AMD Ryzen 9 9950X (100-000001277)", 
         "url": "https://exe.ua/product-p663805/"
     },
     {
-        "name": "Товар на Rozetka (Приклад)", 
-        "url": "https://rozetka.com.ua/ua/asus-90mr00u2-m00ay0/p412197771/"
+        "name": "Процесор AMD Ryzen 9 9950X (100-100001277WOF)", 
+        "url": "https://hard.rozetka.com.ua/ua/processors-amd-151522085/p548383908/"
     },
     {
-        "name": "Товар на Hotline (Приклад)", 
-        "url": "https://hotline.ua/ua/computer-processory/amd-ryzen-5-5600x-100-100000065box/"
+        "name": "Процесор AMD Ryzen 9 9950X (100-100001277WOF)", 
+        "url": "https://hotline.ua/ua/computer-processory/amd-ryzen-9-9950x-100-100001277wof/?gad_source=1&gad_campaignid=20758637188&gbraid=0AAAAADe_vz43MDf1pDUy1DpYW19tnqrFG&gclid=CjwKCAjwmdLSBhANEiwAkREMN_LUFVktHFWk5nBBZwRWLBuDfJuL6ji9oJ4gnJCdKedCPk7GMF2ZjxoCQboQAvD_BwE&tab=prices"
     }
 ]
 
